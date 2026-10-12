@@ -23,6 +23,7 @@ from httpx import ASGITransport, AsyncClient
 from app.besti.schemas import BestiUser
 from app.core.config import settings
 from app.core.security import hash_password
+from app.models.client import Client
 from app.models.utilisateur import RoleUtilisateur, Utilisateur
 from app.routers import auth
 
@@ -111,7 +112,14 @@ class FauxSession:
         return Resultat(None)
 
     def add(self, objet):
+        if isinstance(objet, Client):
+            # Fiche client du compte Besti : seul son id compte ici.
+            objet.id = 500
+            return
         self.en_attente.append(objet)
+
+    async def flush(self):
+        pass
 
     async def commit(self):
         self.commits += 1

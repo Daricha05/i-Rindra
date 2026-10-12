@@ -21,6 +21,7 @@ from httpx import ASGITransport, AsyncClient
 from app.besti.schemas import BestiUser
 from app.besti.service import appliquer
 from app.core.config import settings
+from app.models.client import Client
 from app.models.utilisateur import RoleUtilisateur, Utilisateur
 
 SECRET = "secret-de-test-besti"
@@ -103,6 +104,7 @@ class FauxSession:
     def __init__(self, utilisateurs=None):
         self.utilisateurs = list(utilisateurs or [])
         self.en_attente = []
+        self.clients = []
         self.supprimes = []
         self.commits = 0
         self._prochaine_id = max((u.id or 0 for u in self.utilisateurs), default=0) + 1
@@ -133,7 +135,15 @@ class FauxSession:
         return ResultatFaux([])
 
     def add(self, objet):
+        if isinstance(objet, Client):
+            objet.id = self._prochaine_id
+            self._prochaine_id += 1
+            self.clients.append(objet)
+            return
         self.en_attente.append(objet)
+
+    async def flush(self):
+        pass
 
     async def commit(self):
         self.commits += 1

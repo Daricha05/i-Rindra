@@ -19,6 +19,9 @@ Invariants tenus ici, quels que soient les données reçues :
 * **Idempotence.** Besti peut renvoyer le même événement plusieurs fois (retry,
   rejeu manuel, double clic). L'upsert se fait sur `besti_id`, jamais sur
   l'email : il n'y a donc jamais de doublon ni d'exception d'unicité.
+* **Une fiche client par compte lié.** Un compte lié sans fiche en reçoit une
+  nouvelle (jamais une fiche existante de même nom) ; une fiche déjà
+  attribuée n'est jamais modifiée ni remplacée.
 """
 import logging
 
@@ -27,6 +30,7 @@ from sqlalchemy import select
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.besti.schemas import BestiUser
+from app.models.client import Client
 from app.models.mot_de_passe_reinit import MotDePasseReinit
 from app.models.utilisateur import RoleUtilisateur, Utilisateur
 from app.utils.emails import normaliser_email
@@ -65,6 +69,29 @@ async def _revoquer_jetons_reinitialisation(db: AsyncSession, utilisateur_id: in
     await db.execute(
         delete(MotDePasseReinit).where(MotDePasseReinit.utilisateur_id == utilisateur_id)
     )
+
+
+async def _creer_fiche_client(db: AsyncSession, compte: BestiUser, email: str) -> int:
+    """
+    Crée la fiche client (entité qui porte les projets) d'un compte Besti et
+    retourne son id.
+
+    Toujours une NOUVELLE fiche : rattacher le compte à une fiche existante de
+    même nom donnerait à ce client Besti l'accès aux projets d'un autre (deux
+    entreprises peuvent porter le même nom), comme une fusion par email.
+    """
+    nom_complet = f"{compte.firstName} {compte.lastName}".strip()
+    fiche = Client(
+        nom=(compte.companyName or "").strip() or nom_complet,
+        contact=nom_complet,
+        email=email,
+    )
+    db.add(fiche)
+    # Le flush attribue l'id sans valider : fiche et compte sont enregistrés
+    # par le même commit, ou pas du tout.
+    await db.flush()
+    logger.info("Fiche client créée pour le compte Besti %s.", compte.bestiId)
+    return fiche.id
 
 
 async def _desactiver(db: AsyncSession, compte: BestiUser) -> None:
@@ -141,6 +168,12 @@ async def appliquer(db: AsyncSession, evenement: str, compte: BestiUser) -> Util
         utilisateur.prenom = compte.firstName
         utilisateur.email = email
         utilisateur.actif = True
+
+    # Sans fiche client, un compte « client » ne voit aucun projet. Une fiche
+    # déjà attribuée (ou réattribuée par un administrateur) n'est jamais
+    # touchée ; un compte lié créé avant cette règle en reçoit une ici.
+    if utilisateur.client_id is None:
+        utilisateur.client_id = await _creer_fiche_client(db, compte, email)
 
     await db.commit()
     await db.refresh(utilisateur)
