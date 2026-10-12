@@ -188,6 +188,14 @@ export default function MonProjet() {
       </div>
     );
 
+  // Compte client sans projet (ex. compte Besti tout juste créé).
+  if (!projet)
+    return (
+      <div className="rounded-lg border border-slate-200 bg-slate-50 px-4 py-3 text-sm text-slate-600">
+        Aucun projet n'est encore associé à votre compte.
+      </div>
+    );
+
   const couleurStatut = COULEUR_STATUT[projet?.statut_sante] || {
     badge: "bg-slate-100 text-slate-700",
     barre: "bg-slate-400",
