@@ -30,6 +30,7 @@ from sqlalchemy import select
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.besti.schemas import BestiUser
+from app.besti.service_projet import archiver_projets_du_compte, desarchiver_projets_du_compte
 from app.models.client import Client
 from app.models.mot_de_passe_reinit import MotDePasseReinit
 from app.models.utilisateur import RoleUtilisateur, Utilisateur
@@ -109,6 +110,8 @@ async def _desactiver(db: AsyncSession, compte: BestiUser) -> None:
 
     utilisateur.actif = False
     await _revoquer_jetons_reinitialisation(db, utilisateur.id)
+    # Ses projets Besti sont archivés avec lui (motif « compte désactivé »).
+    await archiver_projets_du_compte(db, utilisateur.id)
     await db.commit()
 
 
@@ -168,6 +171,8 @@ async def appliquer(db: AsyncSession, evenement: str, compte: BestiUser) -> Util
         utilisateur.prenom = compte.firstName
         utilisateur.email = email
         utilisateur.actif = True
+        # Les projets archivés par la désactivation reviennent avec le compte.
+        await desarchiver_projets_du_compte(db, utilisateur.id)
 
     # Sans fiche client, un compte « client » ne voit aucun projet. Une fiche
     # déjà attribuée (ou réattribuée par un administrateur) n'est jamais

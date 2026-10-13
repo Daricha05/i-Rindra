@@ -4,6 +4,7 @@ import api from "../api/client";
 import { Chart as ChartJS, ArcElement, Tooltip, Legend } from "chart.js";
 import { Doughnut } from "react-chartjs-2";
 import Spin from "../components/Spin";
+import ProjetsBesti from "./ProjetsBesti";
 import "animate.css";
 
 ChartJS.register(ArcElement, Tooltip, Legend);
@@ -43,7 +44,8 @@ const STATUT_MAP = { vert: "Bon", orange: "Attention", rouge: "Critique" };
 const KANBAN_MAP = { a_faire: "À faire", en_cours: "En cours", en_revue: "En revue", termine: "Terminé" };
 const PRIORITE_MAP = { basse: "Basse", moyenne: "Moyenne", haute: "Haute" };
 
-export default function MonProjet() {
+// Suivi des projets internes (tâches, avancement).
+function SuiviProjet() {
   const [projets, setProjets] = useState([]);
   const [projetId, setProjetId] = useState(null);
   const [projet, setProjet] = useState(null);
@@ -503,3 +505,33 @@ export default function MonProjet() {
   );
 }
 
+const ONGLETS = [
+  ["besti", "Projets Besti"],
+  ["suivi", "Suivi du projet"],
+];
+
+export default function MonProjet() {
+  const [onglet, setOnglet] = useState("besti");
+
+  return (
+    <div className="w-full">
+      <div className="mb-6 flex gap-2 border-b border-slate-200">
+        {ONGLETS.map(([cle, libelle]) => (
+          <button
+            key={cle}
+            type="button"
+            onClick={() => setOnglet(cle)}
+            className={`-mb-px border-b-2 px-4 py-2 text-sm font-medium transition-colors ${
+              onglet === cle
+                ? "border-i-blue text-slate-900"
+                : "border-transparent text-slate-500 hover:text-slate-700"
+            }`}
+          >
+            {libelle}
+          </button>
+        ))}
+      </div>
+      {onglet === "besti" ? <ProjetsBesti /> : <SuiviProjet />}
+    </div>
+  );
+}
